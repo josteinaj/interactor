@@ -50,7 +50,9 @@ Interactor.prototype = {
 		if (Interaction.interactions === true) {
 			for (var i = 0; i < Interaction.interactionEvents.length; i++) {
 				var ev 		= Interaction.interactionEvents[i],
-					targets = document.getElementsByClassName(Interaction.interactionElement);
+					targets = typeof Interaction.interactionElement === "string" ?
+						document.getElementsByClassName(Interaction.interactionElement) :
+						Interaction.interactionElement; // if string => CSS class, else => array of elements
 				for (var j = 0; j < targets.length; j++) {
 					targets[j].addEventListener(ev, function (e) {
 						e.stopPropagation();
