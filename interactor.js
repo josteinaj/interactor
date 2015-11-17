@@ -2,6 +2,7 @@
 The MIT License (MIT)
 
 Copyright (c) 2015 Benjamin Cordier
+Modified by Jostein Austvik Jacobsen, 2015
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -32,14 +33,45 @@ Interactor.prototype = {
 	__init__: function (config) {
 		this.interactions 			= config.interactions 			|| true,
 		this.interactionElement 	= config.interactionElement 	|| 'interaction',
-		this.interactionEvents 		= config.interactionEvents 		|| ['mouseup', 'touchend'],
+		this.interactionEvents 		= config.interactionEvents 		|| ['click'],
 		this.conversions 			= config.coversions 			|| false,
 		this.conversionElement 		= config.conversionElement 		|| 'conversion',
-		this.conversionEvents 		= config.conversionEvents 		|| ['mouseup', 'touchend'],
+		this.conversionEvents 		= config.conversionEvents 		|| ['click'],
+		this.focus 			        = config.focus 			        || false,
+		this.focusElement 	        = config.focusElement           || 'focus',
+		this.focusEvents 		    = config.focusEvents 		    || ['focus'],
+		this.mousePosition 			= config.mousePosition          || false,
 		this.endpoint 				= config.endpoint 				|| '/interactions',
+		
+		this.lastMouseEvent         = null;
 		this.records 				= [];
 		this.loadTime 				= new Date();
 		this.__createEvents__();
+	},
+	
+	// Get path to element, based on http://stackoverflow.com/a/4588211/281065
+	__xpath__: function(el){
+	    var names = [];
+	    while (el.parentNode){
+	        if (el.id){
+	            names.unshift("//"+(el.tagName+"").toLowerCase()+"[@id='"+el.id+"']");
+	            break;
+	        }else{
+	            if (el==el.ownerDocument.documentElement) names.unshift("/"+(el.tagName+"").toLowerCase());
+	            else{
+	                for (var c=1,e=el;e.previousElementSibling;e=e.previousElementSibling,c++);
+	                    names.unshift(
+	                        (el.tagName+"").toLowerCase()+"["+c+"]"
+	                        +((el.className !== null && el.className !== "") ? "[@class='"+el.className+"']" : "")
+	                        +((el.getAttribute("name") !== null && el.getAttribute("name") !== "") ? "[@name='"+el.getAttribute("name")+"']" : "")
+	                        +((el.getAttribute("src") !== null && el.getAttribute("src") !== "") ? "[@name='"+el.getAttribute("src")+"']" : "")
+	                        +((el.getAttribute("href") !== null && el.getAttribute("href") !== "") ? "[@name='"+el.getAttribute("href")+"']" : "")
+	                    );
+	            }
+	            el=el.parentNode;
+	        }
+	    }
+	    return names.join("/");
 	},
 
 	// Create Events to Track
@@ -49,7 +81,7 @@ Interactor.prototype = {
 		// Set Interaction Capture
 		if (Interaction.interactions === true) {
 			for (var i = 0; i < Interaction.interactionEvents.length; i++) {
-				var ev 		= Interaction.interactionEvents[i],
+				var ev = Interaction.interactionEvents[i],
 					targets = typeof Interaction.interactionElement === "string" ?
 						document.getElementsByClassName(Interaction.interactionElement) :
 						Interaction.interactionElement; // if string => CSS class, else => array of elements
@@ -65,8 +97,10 @@ Interactor.prototype = {
 		// Set Conversion Capture
 		if (Interaction.conversions === true) {
 			for (var i = 0; i < Interaction.conversionEvents.length; i++) {
-				var ev 		= Interaction.events[i],
-					targets = document.getElementsByClassName(Interaction.conversionElement);
+				var ev = Interaction.events[i],
+				targets = typeof Interaction.focusElement === "string" ?
+						document.getElementsByClassName(Interaction.conversionElement) :
+						Interaction.focusElement; // if string => CSS class, else => array of elements
 				for (var j = 0; j < targets.length; j++) {
 					targets[j].addEventListener(ev, function (e) {
 						e.stopPropagation();
@@ -74,6 +108,38 @@ Interactor.prototype = {
 					});
 				}
 			}	
+		}
+		
+		// Set Focus Capture
+		if (Interaction.focus === true) {
+			for (var i = 0; i < Interaction.focusEvents.length; i++) {
+				var ev = Interaction.focusEvents[i],
+					targets = typeof Interaction.focusElement === "string" ?
+						document.getElementsByClassName(Interaction.focusElement) :
+						Interaction.focusElement; // if string => CSS class, else => array of elements
+				for (var j = 0; j < targets.length; j++) {
+					targets[j].addEventListener(ev, function (e) {
+						e.stopPropagation();
+						Interaction.__addInteraction__(e, "focus");
+					});
+				}
+			}	
+		}
+		
+		// Set Mouse Capture
+		if (Interaction.mousePosition === true) {
+			window.setInterval(function(){
+				if (Interaction.lastMouseEvent !== null && new Date().getTime() - Interaction.lastMouseEvent.timeStamp > 250) {
+					Interaction.__addInteraction__(Interaction.lastMouseEvent, "mousePosition");
+					Interaction.lastMouseEvent = null;
+				}
+			}, 250);
+			
+			document.onmousemove = function(e) {
+				if (Interaction.lastMouseEvent === null) {
+					Interaction.lastMouseEvent = e;
+				}
+			};
 		}
 
 		// Bind onbeforeunload Event
@@ -88,9 +154,10 @@ Interactor.prototype = {
 			interaction 	= {
 				type 			: type,
 				event 			: e.type,
-				targetTag 		: e.path[0].tagName,
+				targetTag 		: e.path[0].tagName.toLowerCase(),
 				targetClasses 	: e.path[0].className,
 				content 		: e.path[0].innerText,
+				xpath           : Interaction.__xpath__(e.path[0]),
 				clientPosition  : {
 					x 				: e.clientX,
 					y 				: e.clientY
@@ -99,6 +166,7 @@ Interactor.prototype = {
 					x 				: e.screenX,
 					y 				: e.screenY
 				},
+				scrollTop       : document.body.scrollTop,
 				createdAt 		: new Date()
 			};
 		Interaction.records.push(interaction);
