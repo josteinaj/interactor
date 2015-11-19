@@ -210,10 +210,10 @@ Interactor.prototype = {
             interaction     = {
                 type            : type,
                 event           : e.type,
-                targetTag       : e.path[0].tagName.toLowerCase(),
-                targetClasses   : e.path[0].className,
-                content         : e.path[0].innerText,
-                xpath           : Interaction.__xpath__(e.path[0]),
+                targetTag       : (typeof e.target === "undefined" || typeof e.target === "null") ? null : e.target.tagName.toLowerCase(),
+                targetClasses   : (typeof e.target === "undefined" || typeof e.target === "null") ? null : e.target.className,
+                content         : (typeof e.target === "undefined" || typeof e.target === "null") ? null : e.target.innerText,
+                xpath           : (typeof e.target === "undefined" || typeof e.target === "null") ? null : Interaction.__xpath__(e.target),
                 clientPosition  : {
                     x               : e.clientX,
                     y               : e.clientY
